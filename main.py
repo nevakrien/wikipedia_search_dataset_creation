@@ -1,5 +1,5 @@
 from wiki import get_article_pairs_from_hebrew, parse_to_dict
-from validate import remove_empty
+from validate import remove_empty,sensitize_text
 
 import json
 import os 
@@ -8,7 +8,7 @@ from os.path import join
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
-from requests.exceptions import ConnectionError, ChunkedEncodingError,JSONDecodeError
+from requests.exceptions import ConnectionError, ChunkedEncodingError,JSONDecodeError, ReadTimeout
 # import time
 
 # def delay_iterator(l,window):
@@ -17,15 +17,7 @@ from requests.exceptions import ConnectionError, ChunkedEncodingError,JSONDecode
 # 		yield x
 # 		time.sleep(window)
 
-def sensitize_text(text):
-    
-    text = text.replace(" ", "_")
-    text = text.replace("\n", "_n_")
-    
-    for i,char in enumerate(["/", "\\", ":",'.',"\"","\'"]):
-        text = text.replace(char, f"@{i}")
-        
-    return text
+
 
 def process_title(title,save_dir,bar=None):
 	e,h=get_article_pairs_from_hebrew(title)
@@ -80,7 +72,7 @@ if __name__=="__main__":
 			print('starting data collection')
 			make_data(save_dir,titles,bar)
 			#Exception
-		except (ConnectionError, ChunkedEncodingError,JSONDecodeError) as e:
+		except (ConnectionError, ChunkedEncodingError,JSONDecodeError,ReadTimeout) as e:
 			print(f'errored likely because of API limits:\n {e}')
 			print('preforming cleanup')
 			remove_empty(save_dir)
