@@ -20,7 +20,7 @@ def get_article_pairs_from_english(title):
     page_en = wiki_en.page(title)
 
     if not page_en.exists():
-        return None
+        return None,None
 
     # Get corresponding Hebrew page
     page_he_title = page_en.langlinks.get('he')
@@ -38,7 +38,7 @@ def get_article_pairs_from_hebrew(title):
     page_he = wiki_he.page(title)
 
     if not page_he.exists():
-        return None
+        return None,None
 
     # Get corresponding Hebrew page
     page_en_title = page_he.langlinks.get('en')
@@ -63,6 +63,9 @@ def get_top_pages(language, access_type='all-access', year=None, month=None, day
     else:
         return None
 
+def parse_to_dict(page):
+    sections=[x.text for x in page.sections]
+    return {'title':page.title,'summary':page.summary,'sections':sections,'text':page.text}
 
 if __name__=="__main__":
     e,h=get_article_pairs_from_english("Art")#("Stuff")#
@@ -71,8 +74,9 @@ if __name__=="__main__":
     e,h=get_article_pairs_from_hebrew("הקו_הירוק")
     print(f"english: {e}\nhebrew: {h}")
 
-    print(e.text)
-
+    #print(dir(e))#.text)
+    print({k:type(v) for k,v in parse_to_dict(e).items()})
+    print([type(x) for x in parse_to_dict(e)['sections']])
     # Example usage
     #top_pages = get_top_pages('he', year=2018, month=1, day=7)#year=2024, month=1, day=7)
     #print(top_pages)

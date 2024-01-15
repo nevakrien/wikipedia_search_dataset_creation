@@ -1,3 +1,4 @@
 wikipedia-api
 mwxml
 jupyter
+tqdm
