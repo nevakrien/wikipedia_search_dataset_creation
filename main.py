@@ -7,6 +7,17 @@ from os.path import join
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
+
+def sensitize_text(text):
+    
+    text = text.replace(" ", "_")
+    text = text.replace("\n", "_")
+    
+    for char in ["/", "\\", ":",'.',"\"","\'"]:
+        text = text.replace(char, "@" + char)
+        
+    return text
+
 def process_title(title,save_dir):
 	e,h=get_article_pairs_from_hebrew(title)
 	if not e or not h:
@@ -30,6 +41,7 @@ if __name__=="__main__":
 	with open(join('data','hewiki-20240101-all-titles-in-ns0')) as f:
 		titles=f.read().split('\n')
 
+	titles=map(sensitize_text,titles)
 	done=set(os.listdir(save_dir))
 	titles=[x for x in titles if x not in done]
 
