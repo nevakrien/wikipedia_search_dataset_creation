@@ -7,6 +7,7 @@ from os.path import join
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
+from requests.exceptions import ConnectionError, ChunkedEncodingError,JSONDecodeError
 # import time
 
 # def delay_iterator(l,window):
@@ -18,18 +19,21 @@ from tqdm import tqdm
 def sensitize_text(text):
     
     text = text.replace(" ", "_")
-    text = text.replace("\n", "_")
+    text = text.replace("\n", "_n_")
     
-    for char in ["/", "\\", ":",'.',"\"","\'"]:
-        text = text.replace(char, "@" + char)
+    for i,char in enumerate(["/", "\\", ":",'.',"\"","\'"]):
+        text = text.replace(char, f"@{i}")
         
     return text
 
 def process_title(title,save_dir,bar=None):
 	e,h=get_article_pairs_from_hebrew(title)
+
+	save_dir=join(save_dir,title)
+	os.mkdir(save_dir)
+
 	if not e or not h:
-		os.makedirs(save_dir)
-		with open(join(save_dir,'error,txt','w')) as f:
+		with open(join(save_dir,'error.txt'),'w') as f:
 			f.write('no pair')
 		if bar:
 			bar.update(1)
@@ -37,8 +41,7 @@ def process_title(title,save_dir,bar=None):
 
 	e=parse_to_dict(e)
 	h=parse_to_dict(h)
-	save_dir=join(save_dir,title)
-	os.makedirs(save_dir)
+	
 
 	with open(join(save_dir,'en.json'),'w') as f:
 		json.dump(e,f)
@@ -75,8 +78,9 @@ if __name__=="__main__":
 		try: 
 			print('starting data collection')
 			make_data(save_dir,titles,bar)
-		except Exception as e:
-			print(f'errored for some reason who cares')
+			#Exception
+		except (ConnectionError, ChunkedEncodingError,JSONDecodeError) as e:
+			print(f'errored {e}')
 			done=set(os.listdir(save_dir))
 			#bar.n=len(done)
 			titles=[x for x in titles if x not in done]
