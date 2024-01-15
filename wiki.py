@@ -71,6 +71,8 @@ if __name__=="__main__":
     e,h=get_article_pairs_from_hebrew("הקו_הירוק")
     print(f"english: {e}\nhebrew: {h}")
 
+    print(e.text)
+
     # Example usage
-    top_pages = get_top_pages('he', year=2018, month=1, day=7)#year=2024, month=1, day=7)
-    print(top_pages)
+    #top_pages = get_top_pages('he', year=2018, month=1, day=7)#year=2024, month=1, day=7)
+    #print(top_pages)
