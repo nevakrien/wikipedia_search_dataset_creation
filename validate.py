@@ -9,11 +9,12 @@ def remove_empty(save_dir):
 	empty = [join(save_dir,t) for t in os.listdir(save_dir)]
 	empty = [t for t in empty if not os.listdir(t)]
 
-	print(f'found {len(empty)} empty files deleting them')
+	print(f'found {len(empty)} empty files in {save_dir} deleting them')
 
 	with ThreadPoolExecutor() as ex:
 		m=ex.map(os.rmdir,empty)
-		list(tqdm(m,total=len(empty)))
+		list(m)
+		#list(tqdm(m,total=len(empty)))
 
 def check_data(save_dir):
 	subs={t:os.listdir(join(save_dir,t)) for t in os.listdir(save_dir)}

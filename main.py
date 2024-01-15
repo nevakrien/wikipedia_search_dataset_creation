@@ -1,4 +1,5 @@
 from wiki import get_article_pairs_from_hebrew, parse_to_dict
+from validate import remove_empty
 
 import json
 import os 
@@ -80,10 +81,14 @@ if __name__=="__main__":
 			make_data(save_dir,titles,bar)
 			#Exception
 		except (ConnectionError, ChunkedEncodingError,JSONDecodeError) as e:
-			print(f'errored {e}')
+			print(f'errored likely because of API limits:\n {e}')
+			print('preforming cleanup')
+			remove_empty(save_dir)
+
 			done=set(os.listdir(save_dir))
 			#bar.n=len(done)
 			titles=[x for x in titles if x not in done]
+
 	bar.close()
 
 	
