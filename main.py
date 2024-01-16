@@ -64,7 +64,7 @@ if __name__=="__main__":
 	done=set(os.listdir(save_dir))
 	#bar.n=len(done)
 	bar.update(len(done))
-	titles=[x for x in titles if x not in done]
+	titles=[x for x in titles if x not in done and x!='']
 	
 	print(f'found existing {len(done)} elements')
 	while(titles):
@@ -80,6 +80,12 @@ if __name__=="__main__":
 			done=set(os.listdir(save_dir))
 			#bar.n=len(done)
 			titles=[x for x in titles if x not in done]
+		# except KeyError as e:
+		# 	done=set(os.listdir(save_dir))
+		# 	#bar.n=len(done)
+		# 	titles=[x for x in titles if x not in done]
+		# 	print(titles[:3])
+		# 	raise e
 
 	bar.close()
 
