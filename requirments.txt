@@ -2,3 +2,4 @@ wikipedia-api
 mwxml
 jupyter
 tqdm
+h5py
