@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from typing import List
 
 import struct
+import numpy as np
+import tempfile
+
+import sqlite3
 
 @dataclass
 class PageData:
@@ -53,7 +57,40 @@ class PageData:
 
         return PageData(title, summary, sections, text)
 
+def write_to_sqlite(conn, page_data):
+    binary_data = page_data.to_binary()
+    conn.execute('INSERT INTO page_data (data) VALUES (?)', (binary_data,))
 
+def read_from_sqlite(conn, row_id):
+    cursor = conn.execute('SELECT data FROM page_data WHERE id = ?', (row_id,))
+    data = cursor.fetchone()[0]
+    return PageData.from_binary(data)
+
+def test_sqlite_read_write():
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile() as temp_file:
+        file_path = temp_file.name
+
+        # Setup SQLite database
+        conn = sqlite3.connect(file_path)
+        conn.execute('CREATE TABLE page_data (id INTEGER PRIMARY KEY, data BLOB)')
+
+        # Sample PageData object
+        page_data_sample = PageData("Title", "Summary", ["Section1", "Section2"], "Text")
+
+        # Write data to SQLite
+        write_to_sqlite(conn, page_data_sample)
+        conn.commit()
+
+        # Read data from SQLite
+        retrieved_data = read_from_sqlite(conn, 1)
+
+        # Test the integrity of the data
+        assert page_data_sample == retrieved_data
+        print("Test passed! Data integrity maintained.")
+
+        # Close the database connection
+        conn.close()
 
 if __name__=="__main__":
 	with open(join('data','pairs_dataset','תל_אבו_הוריירה','en.json')) as f:
@@ -62,17 +99,12 @@ if __name__=="__main__":
 	#test class integrity
 	p=PageData(**d)
 	assert p.__dict__==d
+	print('class matches save data')
 
 	#test binary encoding
 	b=p.to_binary()
 	assert p.__dict__==PageData.from_binary(b).__dict__
+	print('binary encding works')
 
-	maklen=len(os.listdir(join('data','pairs_dataset')))
-	# # Create a file and dataset
-	# with h5py.File('variable_length_strings.h5', 'w') as f:
-	#     # Create a special dtype for variable-length strings
-	#     dt = h5py.special_dtype(vlen=str)
-	    
-	#     # Initialize the dataset with the special dtype
-	#     # The shape is (max_entries, 1) because each entry is a list of strings
-	#     dset = f.create_dataset('string_lists',dtype=dt, maxshape=(maklen, 4))
+	test_sqlite_read_write()
+	
