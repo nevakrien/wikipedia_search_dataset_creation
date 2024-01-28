@@ -1,4 +1,3 @@
-import h5py #may get rid of it
 import json
 import os
 from os.path import join
@@ -66,6 +65,26 @@ def read_from_sqlite(conn, row_id):
     data = cursor.fetchone()[0]
     return PageData.from_binary(data)
 
+
+def compress_data(data_dir,save_dir):
+	def load_data(self,folder):
+		path=join(self.data_dir,folder)
+		ans={}
+		for name in os.listdir(path):
+			if name[-5:]!='.json':
+				continue
+			with open(join(path,name)) as f:
+				d=json.load(f)
+
+			ans[name[:-5]]=d 
+
+		if len(ans)==0:
+			return 1
+
+		#write_to_sqlite(conn,ans)
+		return 0
+
+#Tests
 def test_sqlite_read_write():
     # Create a temporary file
     with tempfile.NamedTemporaryFile() as temp_file:
@@ -87,12 +106,12 @@ def test_sqlite_read_write():
 
         # Test the integrity of the data
         assert page_data_sample == retrieved_data
-        print("Test passed! Data integrity maintained.")
+        #print("Test passed! Data integrity maintained.")
 
         # Close the database connection
         conn.close()
 
-if __name__=="__main__":
+def full_test():
 	with open(join('data','pairs_dataset','תל_אבו_הוריירה','en.json')) as f:
 		d=json.load(f)
 
@@ -107,4 +126,10 @@ if __name__=="__main__":
 	print('binary encding works')
 
 	test_sqlite_read_write()
+	print('sqlite db works')
+
+	print('All Tests Passed!!!')
+
+if __name__=="__main__":
+	full_test()
 	

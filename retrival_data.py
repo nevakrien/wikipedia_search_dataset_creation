@@ -44,5 +44,6 @@ class RetrivalDataGen():
 		self.data.append(ans)
 		return 0
 
+
 if __name__=="__main__":
 	dataset=RetrivalDataGen(join('data','pairs_dataset'))
