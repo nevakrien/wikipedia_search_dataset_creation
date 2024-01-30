@@ -13,6 +13,10 @@ for data u can and probably should go to the hebrew wikipedia data dump and get 
 https://dumps.wikimedia.org/hewiki/20240101
 I couldnt find a way to parse that dump thats identical to what the api would give me so I decided to just run the query to the api twice we still need the dump for the page titles make sure to take namespace 0 since these are the actual articles	"hewiki-20240101-all-titles-in-ns0.gz"
 
+
+we gave 2 dbs because sqlite is kind of anoying to work with while using multithreading but it does better data encoding and is supported by the python runtime for python 3 so its the better choice for the runing on compute nodes.
+if u are runing locally u may be able to avoid that step	
+
 # usage
 just run main.py 
 note that the program will crash and recover a lot because of api limits this is in no way perfect but it does seem to work so thats what we are going with

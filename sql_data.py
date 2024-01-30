@@ -9,6 +9,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
+from tqdm import tqdm
 @dataclass
 class PageData:
     title: str
@@ -23,6 +24,13 @@ class WikiSql():
         self.connections={}
         self.make_db()
 
+    def get_all_folders(self):
+        cur = self.get_connection().cursor()
+        cur.execute('SELECT DISTINCT folder FROM main_data')
+        folders = [row[0] for row in cur.fetchall()]
+        return folders
+
+
     def get_connection(self):
         thread_id = threading.get_ident()
         if thread_id not in self.connections:
@@ -36,7 +44,8 @@ class WikiSql():
         cur=conn.cursor()#with  as cur:
         cur.execute('''CREATE TABLE IF NOT EXISTS main_data 
                         (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                         folder TEXT, lang TEXT)''')
+                         folder TEXT, lang TEXT,
+                         UNIQUE(folder, lang))''')
         cur.execute('''CREATE TABLE IF NOT EXISTS titles 
                         (id INTEGER, title TEXT, 
                          FOREIGN KEY(id) REFERENCES main_data(id))''')
@@ -54,41 +63,67 @@ class WikiSql():
 
         
 
-    def add_to_db(self,data_dir):
-        with ThreadPoolExecutor() as ex:
-            #print([type(x) for x in dir(ex._threads)])
-            #print([x for x in ex._work_queue])
-            list(ex.map(self._process_folder,[join(data_dir,p) for p in os.listdir(data_dir)]))
+    def add_to_db(self, data_dir):
+        full_data= [join(data_dir, p) for p in os.listdir(data_dir)]
+        step=100
+        # limit=step*100
         
-        # for c in self.connections.values():
-        #     c.commit()
-        #     c.close()
-        self.connections={}
-        
-    def _process_folder(self,path):
-        #cur=get_connection().cursor()
+        with ThreadPoolExecutor() as executor:
+            for i in tqdm(range(0,len(full_data),step)):      
+                # Process each folder in parallel and gather data
+                results = list(executor.map(self._gather_data_for_insert,full_data[i:i+step]))
+            
+                # Flatten the list of results
+                sub_data = [item for sublist in results for item in sublist]
+
+                # Perform bulk insert
+                self._bulk_insert(sub_data)
+                # if(i==limit):
+                #     break
+
+        self.get_connection().close()
+
+    def _gather_data_for_insert(self, path):
+        data_for_insert = []
         for name in os.listdir(path):
-                if name.endswith('.json'):
-                    self._process_file(os.path.basename(path), name[:-5], os.path.join(path, name))
+            if name.endswith('.json'):
+                folder = os.path.basename(path)
+                lang = name[:-5]
+                file_path = join(path, name)
 
-    def _process_file(self, folder, lang, file_path):
-        conn=self.get_connection()
-        cur=conn.cursor()
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                page_data = PageData(**data)
 
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        page_data = PageData(**data)
+                # Prepare data for bulk insert
+                data_for_insert.append((folder, lang, page_data))
 
-        cur.execute('INSERT INTO main_data (folder, lang) VALUES (?, ?)', (folder, lang))
-        main_id = cur.execute('SELECT last_insert_rowid()').fetchone()[0]
+        return data_for_insert
 
-        cur.execute('INSERT INTO titles (id, title) VALUES (?, ?)', (main_id, page_data.title))
-        cur.execute('INSERT INTO summaries (id, summary) VALUES (?, ?)', (main_id, page_data.summary))
-        for i, section in enumerate(page_data.sections):
-            cur.execute('INSERT INTO sections (id, section_num, section) VALUES (?, ?, ?)', 
-                         (main_id, i, section))
-        cur.execute('INSERT INTO texts (id, text) VALUES (?, ?)', (main_id, page_data.text))
-        conn.commit()
+    def _bulk_insert(self, all_data):
+        #print(f'gathered {len(all_data)}')
+        conn = self.get_connection()
+        cur = conn.cursor()
+
+        for folder, lang, page_data in all_data:
+            # Insert into main_data and get main_id
+            cur.execute('INSERT INTO main_data (folder, lang) VALUES (?, ?)', (folder, lang))
+            main_id = cur.execute('SELECT last_insert_rowid()').fetchone()[0]
+
+            # Prepare data for executemany
+            titles_data = [(main_id, page_data.title)]
+            summaries_data = [(main_id, page_data.summary)]
+            sections_data = [(main_id, i, section) for i, section in enumerate(page_data.sections)]
+            texts_data = [(main_id, page_data.text)]
+
+            # Bulk insert using executemany
+            cur.executemany('INSERT INTO titles (id, title) VALUES (?, ?)', titles_data)
+            cur.executemany('INSERT INTO summaries (id, summary) VALUES (?, ?)', summaries_data)
+            cur.executemany('INSERT INTO sections (id, section_num, section) VALUES (?, ?, ?)', sections_data)
+            cur.executemany('INSERT INTO texts (id, text) VALUES (?, ?)', texts_data)
+
+            conn.commit()
+        #conn.close()
 
     def load_data(self, folder, lang):
         cur = self.get_connection().cursor()
@@ -151,7 +186,13 @@ def test_retrieval_data_gen():
 #test_retrieval_data_gen()
 
 if __name__ == "__main__":
-    test_retrieval_data_gen()
-    # dataset_gen = WikiSql('path/to/data', 'page_data.db')
-    # data_entry = dataset_gen.load_data('folder_name', 'lang')
-    # print(data_entry)
+    #test_retrieval_data_gen()
+    
+    database_path=join('data','wikisql.db')
+    data_path=join('data','pairs_dataset')
+
+    dataset_gen = WikiSql(database_path)
+    print('adding')
+    dataset_gen.add_to_db(data_path)
+
+
