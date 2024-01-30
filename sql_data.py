@@ -101,29 +101,75 @@ class WikiSql():
         return data_for_insert
 
     def _bulk_insert(self, all_data):
-        #print(f'gathered {len(all_data)}')
         conn = self.get_connection()
         cur = conn.cursor()
 
-        for folder, lang, page_data in all_data:
-            # Insert into main_data and get main_id
-            cur.execute('INSERT INTO main_data (folder, lang) VALUES (?, ?)', (folder, lang))
-            main_id = cur.execute('SELECT last_insert_rowid()').fetchone()[0]
+        try:
+            # Create a temporary table for bulk insert
+            cur.execute('CREATE TEMPORARY TABLE temp_main_data (folder TEXT, lang TEXT)')
 
-            # Prepare data for executemany
-            titles_data = [(main_id, page_data.title)]
-            summaries_data = [(main_id, page_data.summary)]
-            sections_data = [(main_id, i, section) for i, section in enumerate(page_data.sections)]
-            texts_data = [(main_id, page_data.text)]
+            # Insert all folder and lang combinations into temporary table
+            temp_data = [(folder, lang) for folder, lang, _ in all_data]
+            cur.executemany('INSERT INTO temp_main_data (folder, lang) VALUES (?, ?)', temp_data)
 
-            # Bulk insert using executemany
+            # Remove entries from temp_main_data that already exist in main_data
+            cur.execute('''
+                DELETE FROM temp_main_data
+                WHERE EXISTS (
+                    SELECT 1 FROM main_data
+                    WHERE main_data.folder = temp_main_data.folder AND main_data.lang = temp_main_data.lang
+                )
+            ''')
+
+            # Check if there are any records left in the temp_main_data
+            cur.execute('SELECT COUNT(*) FROM temp_main_data')
+            if cur.fetchone()[0] == 0:
+                #print("No new data to insert.")
+                return
+
+            # Insert remaining new records from temp_main_data to main_data
+            cur.execute('''
+                INSERT INTO main_data (folder, lang)
+                SELECT folder, lang FROM temp_main_data
+            ''')
+
+            # Retrieve the ids for all folder and lang combinations
+            cur.execute('SELECT id, folder, lang FROM temp_main_data')
+            id_mapping = {(folder, lang): main_id for main_id, folder, lang in cur.fetchall()}
+
+            # Prepare and insert other data
+            titles_data = []
+            summaries_data = []
+            sections_data = []
+            texts_data = []
+
+            for folder, lang, page_data in all_data:
+                if (folder, lang) in id_mapping:
+                    main_id = id_mapping[(folder, lang)]
+                    titles_data.append((main_id, page_data.title))
+                    summaries_data.append((main_id, page_data.summary))
+                    sections_data.extend((main_id, i, section) for i, section in enumerate(page_data.sections))
+                    texts_data.append((main_id, page_data.text))
+
+            # Bulk insert using executemany for each table
             cur.executemany('INSERT INTO titles (id, title) VALUES (?, ?)', titles_data)
             cur.executemany('INSERT INTO summaries (id, summary) VALUES (?, ?)', summaries_data)
             cur.executemany('INSERT INTO sections (id, section_num, section) VALUES (?, ?, ?)', sections_data)
             cur.executemany('INSERT INTO texts (id, text) VALUES (?, ?)', texts_data)
 
+            # Commit all changes at once
             conn.commit()
-        #conn.close()
+
+        except Exception as e:
+            # Rollback in case of error
+            conn.rollback()
+            raise e
+
+        finally:
+            # Drop the temporary table and ensure the connection is closed properly
+            cur.execute('DROP TABLE temp_main_data')
+            cur.close()
+        
 
     def load_data(self, folder, lang):
         cur = self.get_connection().cursor()
