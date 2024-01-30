@@ -133,9 +133,13 @@ class WikiSql():
                 SELECT folder, lang FROM temp_main_data
             ''')
 
-            # Retrieve the ids for all folder and lang combinations
-            cur.execute('SELECT id, folder, lang FROM temp_main_data')
-            id_mapping = {(folder, lang): main_id for main_id, folder, lang in cur.fetchall()}
+            # Create id_mapping dictionary from the temp_main_data
+            cur.execute('''
+                SELECT temp_main_data.folder, temp_main_data.lang, main_data.id 
+                FROM temp_main_data
+                JOIN main_data ON main_data.folder = temp_main_data.folder AND main_data.lang = temp_main_data.lang
+            ''')
+            id_mapping = {(folder, lang): main_id for folder, lang, main_id in cur.fetchall()}
 
             # Prepare and insert other data
             titles_data = []
