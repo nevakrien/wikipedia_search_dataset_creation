@@ -58,6 +58,10 @@ class WikiSql():
         cur.execute('''CREATE TABLE IF NOT EXISTS texts 
                         (id INTEGER, text TEXT, 
                          FOREIGN KEY(id) REFERENCES main_data(id))''')
+        
+        #added this for speed
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_main_data_id ON main_data (id,folder,lang)')
+        
         conn.commit()
         conn.close()
 
